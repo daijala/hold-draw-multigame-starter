@@ -17,7 +17,7 @@
 </head>
 <body>
   <h1>Hold & Draw • Multi‑Game Test Client</h1>
-  <p>Point this at your Socket.io server (default <code>http://localhost:4000</code>).</p>
+  <p>Point this at your Socket.io server (default <code>http://localhost:8000</code>).</p>
 
   <fieldset>
     <legend>Connection</legend>
@@ -69,8 +69,8 @@
     let socket = null;
 
     const defaultSocketUrl = window.location.hostname === 'localhost' 
-      ? 'http://localhost:4000'
-      : `${window.location.protocol}//${window.location.hostname}:4000`;
+      ? 'http://localhost:8000'
+      : `${window.location.protocol}//${window.location.hostname}:8000`;
     
     $("serverUrl").value = defaultSocketUrl;
 
