@@ -10,6 +10,26 @@ const PORT = process.env.PORT || 5000;
 
 app.use(express.static(path.join(__dirname, 'test-client')));
 
+app.get('/api/config', (req, res) => {
+  const hostname = req.get('host');
+  let backendUrl;
+  
+  if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
+    backendUrl = 'http://localhost:8000';
+  } else if (hostname.includes('replit.dev') || hostname.includes('repl.co')) {
+    const replitDomain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS;
+    if (replitDomain) {
+      backendUrl = `https://8000-${replitDomain}`;
+    } else {
+      backendUrl = `https://${hostname.replace(/^[^-]+-/, '8000-')}`;
+    }
+  } else {
+    backendUrl = `${req.protocol}://${hostname.split(':')[0]}:8000`;
+  }
+  
+  res.json({ backendUrl });
+});
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'test-client', 'index.html'));
 });

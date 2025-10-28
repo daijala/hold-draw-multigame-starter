@@ -14,17 +14,24 @@ This starter lets you run **100+ simultaneous rooms** for your 10‑round "hold 
 cd server
 npm install
 npm run dev
-# Server at http://localhost:4000
+# Server at http://localhost:8000
 ```
 
 Health check:
 ```
-GET http://localhost:4000/health
+GET http://localhost:8000/health
 ```
 
-### 2) Test client
+### 2) Test client (Replit)
+On Replit, both servers start automatically via workflows:
+- Frontend: http://localhost:5000 (served via webview)
+- Backend: http://localhost:8000 (Socket.io server)
+
+The test client automatically detects and connects to the correct backend URL.
+
+### 2) Test client (Local)
 Just open `test-client/index.html` in your browser (double-click the file).
-- Set the **Server URL** to `http://localhost:4000`
+- Set the **Server URL** to `http://localhost:8000`
 - Use **Create Game** (host)
 - Other tabs **Join Game** with same gameId
 - **Start Game** (host), then each **Submit Score**
