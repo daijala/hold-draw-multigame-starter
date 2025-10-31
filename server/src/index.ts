@@ -1,25 +1,13 @@
-import express from 'express';
-import http from 'http';
-import cors from 'cors';
-import { Server, Socket } from 'socket.io';
+import express from "express";
+import http from "http";
+import cors from "cors";
+import { Server, Socket } from "socket.io";
 import os from "os";
 import open from "open";
 
-
-/**
- * Event names (stable for Swift, Web, etc.)
- * client -> server:
- *  - createGame: { gameId?: string, hostName: string }
- *  - joinGame:   { gameId: string, playerName: string }
- *  - leaveGame:  { gameId: string, playerName: string }
- *  - startGame:  { gameId: string } // host only
- *  - submitScore:{ gameId: string, playerName: string, round: number, score: number }
- *  - requestState: { gameId: string } // ask for full state snapshot
- *
- * server -> client:
- *  - stateUpdate: EnhancedGameState
- *  - error: { code: string, message: string }
- */
+// ---------------------------
+// Type Definitions
+// ---------------------------
 
 type PlayerState = {
   name: string;
@@ -38,13 +26,16 @@ type GameState = {
   endedAt?: number;
   awaiting: string[];
   roundSeed?: number;
-  nextRoundSeed?: number;   // ✅ add this line
+  nextRoundSeed?: number;
 };
 
 type Games = Map<string, GameState>;
 const games: Games = new Map();
 
-// Utility: find or create game (for createGame)
+// ---------------------------
+// Helpers
+// ---------------------------
+
 function newGame(gameId: string, hostName: string, maxRounds = 10): GameState {
   const gs: GameState = {
     gameId,
@@ -74,8 +65,20 @@ function ensureAwaiting(gs: GameState) {
   gs.awaiting = need;
 }
 
-// 🔔 Enhanced broadcast helper that mirrors Swift `GameState`
-function broadcast(io: Server, gs: GameState, opts: { roundComplete?: number } = {}) {
+// ---------------------------
+// Broadcast Helpers
+// ---------------------------
+
+function broadcast(
+  io: Server,
+  gs: GameState,
+  opts: { roundComplete?: number; force?: boolean } = {}
+) {
+  if (gs.round === 0 && !opts.force) {
+    console.log(`🚫 Skipping broadcast for ${gs.gameId} (no active round yet)`);
+    return;
+  }
+
   const totals: Record<string, number> = {};
   const submissions: Record<string, boolean> = {};
 
@@ -119,54 +122,117 @@ function broadcast(io: Server, gs: GameState, opts: { roundComplete?: number } =
     nextRound: !ended ? gs.round + 1 : null,
   };
 
+  console.log(
+    `🛰️ [Server] Round ${gs.round}  roundComplete=${opts.roundComplete ?? "nil"}  Totals: ${JSON.stringify(
+      totals
+    )}`
+  );
+
   io.to(gs.gameId).emit("stateUpdate", enhancedState);
 }
+
+// --- throttled wrapper ---
+const broadcastCooldown: Map<string, NodeJS.Timeout> = new Map();
+const callCounts: Record<string, number> = {};
+setInterval(() => {
+  const counts = Object.entries(callCounts)
+    .map(([id, n]) => `${id}:${n}`)
+    .join("  ");
+  if (counts) console.log(`📊 Broadcast counts: ${counts}`);
+  for (const k of Object.keys(callCounts)) delete callCounts[k];
+}, 3000);
+
+function safeBroadcast(
+  io: Server,
+  gs: GameState,
+  opts: { roundComplete?: number; force?: boolean } = {}
+) {
+  callCounts[gs.gameId] = (callCounts[gs.gameId] ?? 0) + 1;
+  clearTimeout(broadcastCooldown.get(gs.gameId));
+  const t = setTimeout(() => {
+    broadcast(io, gs, opts);
+    broadcastCooldown.delete(gs.gameId);
+  }, 150);
+  broadcastCooldown.set(gs.gameId, t);
+}
+
+// ---------------------------
+// Express Setup
+// ---------------------------
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get('/health', (_req, res) => res.json({ ok: true, games: games.size }));
+app.get("/health", (_req, res) => res.json({ ok: true, games: games.size }));
+
+app.get("/stats", (_req, res) => {
+  const now = Date.now();
+  const stats = {
+    uptimeMinutes: Math.round(process.uptime() / 60),
+    memoryMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
+    activeGames: games.size,
+    games: Array.from(games.values()).map((gs) => ({
+      id: gs.gameId,
+      host: gs.hostName,
+      players: gs.players.length,
+      round: gs.round,
+      started: gs.startedAt
+        ? `${Math.round((now - gs.startedAt) / 60000)} min ago`
+        : null,
+      ended: gs.endedAt
+        ? `${Math.round((now - gs.endedAt) / 60000)} min ago`
+        : null,
+      awaiting: gs.awaiting,
+      connected: gs.players.map((p) => ({ name: p.name, connected: p.connected })),
+    })),
+  };
+  res.json(stats);
+});
+
+// ---------------------------
+// Server + Socket.IO Setup
+// ---------------------------
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
+  cors: { origin: "*", methods: ["GET", "POST"] },
 });
 
-io.on('connection', (socket: Socket) => {
-  function fail(code: string, message: string) {
-    socket.emit('error', { code, message });
-  }
+// ---------------------------
+// Socket Events
+// ---------------------------
 
-  socket.on('createGame', (payload: { gameId?: string; hostName: string }) => {
-    try {
-      console.log(`🆕 createGame from ${payload.hostName} → ${payload.gameId}`);
+io.on("connection", (socket: Socket) => {
+  const fail = (code: string, message: string) => socket.emit("error", { code, message });
 
-      const id =
-        (payload.gameId && payload.gameId.trim()) ||
-        `game_${Math.random().toString(36).slice(2, 8)}`;
-      if (games.has(id)) return fail('DUPLICATE_GAME', `Game ${id} already exists.`);
-      const gs = newGame(id, payload.hostName);
-      
-      gs.players.push({
-        name: payload.hostName,
-        connected: true,
-        lastSubmitRound: 0,
-        scores: {},
-      });
-      socket.join(id);
-      broadcast(io, gs);
-    } catch (e: any) {
-      fail('CREATE_ERROR', e?.message || 'Unknown error');
-    }
+  // CREATE
+  socket.on("createGame", (payload: { gameId?: string; hostName: string }) => {
+    const id =
+      (payload.gameId && payload.gameId.trim()) ||
+      `game_${Math.random().toString(36).slice(2, 8)}`;
+    if (games.has(id)) return fail("DUPLICATE_GAME", `Game ${id} already exists.`);
+    const gs = newGame(id, payload.hostName);
+    gs.players.push({
+      name: payload.hostName,
+      connected: true,
+      lastSubmitRound: 0,
+      scores: {},
+    });
+    socket.data.playerName = payload.hostName;
+    socket.data.gameId = id;
+    socket.join(id);
+    safeBroadcast(io, gs, { force: true });
   });
 
-  socket.on('joinGame', (payload: { gameId: string, playerName: string }) => {
-    console.log(`👥 joinGame from ${payload.playerName} → ${payload.gameId}`);
+  // io.on("disconnect", (reason) => {
+  //   if (reason !== "transport close") console.log("🔌 Disconnected", reason);
+  // });
 
+  // JOIN
+  socket.on("joinGame", (payload: { gameId: string; playerName: string }) => {
     let gs = getGame(payload.gameId);
     if (!gs) {
-      // 🚀 auto-create if not found
       gs = newGame(payload.gameId, payload.playerName);
       console.log(`🆕 Auto-created game ${payload.gameId} for ${payload.playerName}`);
     }
@@ -178,169 +244,173 @@ io.on('connection', (socket: Socket) => {
     } else {
       p.connected = true;
     }
+
+    socket.data.playerName = payload.playerName;
+    socket.data.gameId = payload.gameId;
     socket.join(gs.gameId);
-    if (gs.round > 0 && gs.round <= gs.maxRounds) {
-      ensureAwaiting(gs);
-    }
-    broadcast(io, gs);
+    ensureAwaiting(gs);
+    safeBroadcast(io, gs, { force: true });
   });
 
-  socket.on('leaveGame', (payload: { gameId: string; playerName: string }) => {
+  // LEAVE
+  socket.on("leaveGame", (payload: { gameId: string; playerName: string }) => {
     const gs = getGame(payload.gameId);
-    if (!gs) return fail('NOT_FOUND', `Game ${payload.gameId} not found.`);
+    if (!gs) return fail("NOT_FOUND", `Game ${payload.gameId} not found.`);
     const p = findPlayer(gs, payload.playerName);
     if (p) {
       p.connected = false;
       ensureAwaiting(gs);
       socket.leave(gs.gameId);
-      broadcast(io, gs);
-    } else fail('PLAYER_NOT_FOUND', `Player ${payload.playerName} not in game.`);
+      safeBroadcast(io, gs, { force: true });
+    } else fail("PLAYER_NOT_FOUND", `Player ${payload.playerName} not in game.`);
   });
 
-  socket.on('startGame', (payload: { gameId: string }) => {
+  // START
+  socket.on("startGame", (payload: { gameId: string }) => {
     const gs = getGame(payload.gameId);
-    if (!gs) return fail('NOT_FOUND', `Game ${payload.gameId} not found.`);
+    if (!gs) return fail("NOT_FOUND", `Game ${payload.gameId} not found.`);
 
-    console.log(`🎬 startGame for ${payload.gameId} (round=${gs.round}, endedAt=${gs.endedAt})`);
-
-    // ✅ If game was ended or reset, fully restart
     if (gs.round <= 0 || gs.endedAt) {
-      gs.endedAt = undefined;               // ← hard clear lingering endedAt
+      gs.endedAt = undefined;
       gs.round = 1;
       gs.roundSeed = Math.floor(Math.random() * 1_000_000);
       gs.nextRoundSeed = Math.floor(Math.random() * 1_000_000);
       gs.startedAt = Date.now();
-      gs.awaiting = gs.players.map(p => p.name);
+      gs.awaiting = gs.players.map((p) => p.name);
 
       console.log(`🌱 Starting match for ${payload.gameId} → round 1`);
-      broadcast(io, gs);
+      safeBroadcast(io, gs);
       return;
     }
 
-    // 🚫 Prevent double-start mid-game
     if (gs.round > 0 && !gs.endedAt) {
-      console.log(`⚠️ Game ${payload.gameId} already in progress (round ${gs.round})`);
-      return fail('ALREADY_STARTED', 'Game already in progress.');
+      return fail("ALREADY_STARTED", "Game already in progress.");
     }
   });
 
+  // SUBMIT
   socket.on("submitScore", (payload) => {
     const { gameId, playerName, round, score } = payload;
     const gs = games.get(gameId);
     if (!gs) return fail("NOT_FOUND", `Game ${gameId} not found.`);
+    if (gs.endedAt) return;
 
-    // 🚫 Ignore any late submissions from a previous session
-    if (gs.round <= 0) {
-      console.log(`⚠️ Ignoring submitScore for ${gameId} → game is reset (round=${gs.round})`);
-      return;
-    }
-
-    // 🚫 Ignore submissions for older completed games
-    if (gs.endedAt) {
-      console.log(`⚠️ Ignoring submitScore for ${gameId} → game already ended`);
-      return;
-    }
-
-    const player = gs.players.find((p) => p.name === playerName);
+    const key = playerName.trim().toLowerCase();
+    const player = gs.players.find((p) => p.name.toLowerCase() === key);
     if (!player) return fail("PLAYER_NOT_FOUND", `No such player ${playerName}`);
 
+    if (round < gs.round) {
+      console.log(`⚠️ Ignoring late submission r${round} < current ${gs.round} from ${playerName}`);
+      return;
+    }
+
+    console.log(`📥 submitScore ${playerName} r${round}=${score}`);
     player.scores[round] = score;
     player.lastSubmitRound = round;
 
-    gs.awaiting = gs.players
-      .filter((p) => p.lastSubmitRound < gs.round)
-      .map((p) => p.name);
+    ensureAwaiting(gs);
 
-    // 🏁 Everyone submitted?
     if (gs.awaiting.length === 0) {
       const finished = gs.round;
       console.log(`🏁 All players submitted round ${finished}`);
 
-      // 📊 1️⃣ Broadcast leaderboard snapshot
-      broadcast(io, gs, { roundComplete: finished });
+      safeBroadcast(io, gs, { roundComplete: finished });
 
-      // ⏱ 2️⃣ Wait, then advance to next round (but re-check validity!)
       setTimeout(() => {
-        
-        // 🔒 Safety: skip if game was reset or ended during the delay
-        if (gs.round <= 0) {
-          console.log(`⚠️ Skipping advanceRound — ${gameId} was reset (round=${gs.round})`);
-          return;
-        }
-        if (gs.endedAt) {
-          console.log(`⚠️ Skipping advanceRound — ${gameId} already ended`);
+        if (!games.has(gameId)) return;
+        const live = games.get(gameId)!;
+        if (live.round !== finished) return;
+        if (live.endedAt) return;
+
+        if (live.round >= live.maxRounds) {
+          live.endedAt = Date.now();
+          live.round = live.maxRounds + 1;
+          console.log(`🏁 Game ${live.gameId} completed all ${live.maxRounds} rounds`);
+          safeBroadcast(io, live, { roundComplete: live.maxRounds });
           return;
         }
 
-        if (gs.round >= gs.maxRounds) {
-          console.log(`🏁 Game ${gs.gameId} completed all ${gs.maxRounds} rounds`);
-          gs.endedAt = Date.now();
-          gs.round = gs.maxRounds + 1;
-
-          // ✅ Broadcast final leaderboard
-          broadcast(io, gs, { roundComplete: gs.maxRounds });
-          return;
-        }
-        gs.round += 1;
-        gs.roundSeed = gs.nextRoundSeed ?? Math.floor(Math.random() * 1_000_000);
-        gs.nextRoundSeed = Math.floor(Math.random() * 1_000_000);
-        gs.awaiting = gs.players.map((p) => p.name);
-
-        console.log(`🔁 Advancing to round ${gs.round}`);
-        broadcast(io, gs);
+        live.round += 1;
+        live.roundSeed = live.nextRoundSeed ?? Math.floor(Math.random() * 1_000_000);
+        live.nextRoundSeed = Math.floor(Math.random() * 1_000_000);
+        live.awaiting = live.players.map((p) => p.name);
+        console.log(`🔁 Advancing to round ${live.round}`);
+        safeBroadcast(io, live);
       }, 2500);
     } else {
       console.log(`🕐 Awaiting submissions from: ${gs.awaiting.join(", ")}`);
-      broadcast(io, gs);
+      safeBroadcast(io, gs);
     }
   });
 
-  // 🆕 Manual Rematch Handler (Play Again flow)
+  // REMATCH
   socket.on("rematchGame", ({ gameId }) => {
     const gs = games.get(gameId);
-    if (!gs) {
-      return socket.emit("error", {
-        code: "NOT_FOUND",
-        message: `Game ${gameId} not found.`,
-      });
-    }
+    if (!gs) return fail("NOT_FOUND", `Game ${gameId} not found.`);
 
     console.log(`🔁 Host triggered rematch for ${gameId}`);
 
-    // 🧹 1️⃣ Cleanly reset all round-based state
-    gs.round = 0;
-    gs.roundSeed = undefined;
-    gs.nextRoundSeed = undefined;
-    gs.awaiting = [];
-    gs.startedAt = undefined;
-    gs.endedAt = undefined;
-
-    // 🧩 Reset players’ per-round data
     for (const p of gs.players) {
       p.scores = {};
       p.lastSubmitRound = 0;
     }
 
-    // 🟢 2️⃣ Immediately begin Round 1 (no extra startGame needed)
     gs.round = 1;
     gs.roundSeed = Math.floor(Math.random() * 1_000_000);
     gs.nextRoundSeed = Math.floor(Math.random() * 1_000_000);
     gs.startedAt = Date.now();
-    gs.awaiting = gs.players.map(p => p.name);
+    gs.endedAt = undefined;
+    gs.awaiting = gs.players.map((p) => p.name);
 
     console.log(`🌱 Starting new match immediately for ${gameId} → Round 1`);
-    broadcast(io, gs);
+    safeBroadcast(io, gs);
   });
 
-  socket.on('requestState', (payload: { gameId: string }) => {
+  // REQUEST STATE
+  const lastRequestState = new Map<string, number>();
+  socket.on("requestState", (payload: { gameId: string }) => {
+    const now = Date.now();
+    const last = lastRequestState.get(payload.gameId) ?? 0;
+    if (now - last < 2000) return;
+    lastRequestState.set(payload.gameId, now);
+
     const gs = getGame(payload.gameId);
-    if (!gs) return fail('NOT_FOUND', `Game ${payload.gameId} not found.`);
-    broadcast(io, gs);
+    if (gs) safeBroadcast(io, gs);
+  });
+
+  // 🔌 Connection lifecycle events
+  socket.on("disconnect", () => {
+    const { gameId, playerName } = socket.data || {};
+    console.log(`🔌 Disconnected ${playerName ?? "(unknown)"} from ${gameId ?? "(none)"}`);
+    if (gameId && playerName) {
+      const gs = games.get(gameId);
+      const p = gs && findPlayer(gs, playerName);
+      if (p) p.connected = false;
+      if (gs) ensureAwaiting(gs);
+    }
+  });
+
+  socket.on("connect", () => {
+    const { gameId, playerName } = socket.data || {};
+    if (gameId && playerName) {
+      console.log(`🔄 Rejoining ${playerName} to ${gameId} after reconnect`);
+      socket.join(gameId);
+      const gs = games.get(gameId);
+      if (gs) {
+        const p = findPlayer(gs, playerName);
+        if (p) p.connected = true;
+        ensureAwaiting(gs);
+        safeBroadcast(io, gs, { force: true });
+      }
+    }
   });
 });
 
-const PORT = process.env.PORT || 4000;
+// ---------------------------
+// Startup
+// ---------------------------
 
+const PORT = process.env.PORT || 8000;
 server.listen(PORT, () => {
   console.log("✅ Server is running!");
   console.log(`   Local  → http://localhost:${PORT}`);
@@ -354,7 +424,5 @@ server.listen(PORT, () => {
     }
   }
   console.log("\n📱 Use one of the 'Network' URLs on your iPhone/iPad.");
-
-  // Optional: auto-open your health check
   open(`http://localhost:${PORT}/health`).catch(() => {});
 });

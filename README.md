@@ -1,30 +1,34 @@
-
 # Hold & Draw Multi-Game Starter (Node + TypeScript + Socket.io)
 
 This starter lets you run **100+ simultaneous rooms** for your 10‑round "hold & draw" games (ColorUp / DrawzPoker).
 
 ## Structure
+
 - `server/` — Node.js + TypeScript + Express + Socket.io
 - `test-client/` — Plain HTML test client to simulate multiple players/rooms in browser tabs
 
 ## Quick Start
 
 ### 1) Server
+
 ```bash
 cd server
 npm install
 npm run dev
-# Server at http://localhost:4000
+# Server at http://localhost:8000
 ```
 
 Health check:
+
 ```
-GET http://localhost:4000/health
+GET http://localhost:8000/health
 ```
 
 ### 2) Test client
+
 Just open `test-client/index.html` in your browser (double-click the file).
-- Set the **Server URL** to `http://localhost:4000`
+
+- Set the **Server URL** to `http://localhost:8000`
 - Use **Create Game** (host)
 - Other tabs **Join Game** with same gameId
 - **Start Game** (host), then each **Submit Score**
@@ -33,6 +37,7 @@ Just open `test-client/index.html` in your browser (double-click the file).
 ## Stable Event Contract (for Swift / JS clients)
 
 **client → server**
+
 - `createGame` `{ gameId?: string; hostName: string }`
 - `joinGame` `{ gameId: string; playerName: string }`
 - `leaveGame` `{ gameId: string; playerName: string }`
@@ -41,10 +46,12 @@ Just open `test-client/index.html` in your browser (double-click the file).
 - `requestState` `{ gameId: string }`
 
 **server → client**
+
 - `stateUpdate` `GameState`
 - `error` `{ code: string; message: string }`
 
 **GameState**
+
 ```ts
 type PlayerState = {
   name: string;
@@ -58,7 +65,7 @@ type GameState = {
   hostName: string;
   players: PlayerState[];
   maxRounds: number; // 10
-  round: number;     // 0 before start, 1..maxRounds, >maxRounds => over
+  round: number; // 0 before start, 1..maxRounds, >maxRounds => over
   startedAt?: number;
   endedAt?: number;
   awaiting: string[]; // players (connected) who still need to submit this round
@@ -66,6 +73,7 @@ type GameState = {
 ```
 
 ## Notes
+
 - Advancement waits only on **connected** players; if someone leaves, the room won’t stall.
 - To scale horizontally later, persist `games` into Redis or Mongo and use a `socket.io` adapter.
 - You can serve the test client from any static host; it just needs to reach the socket server.
