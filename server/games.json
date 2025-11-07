@@ -1,0 +1,249 @@
+[
+  {
+    "gameId": "YCHP",
+    "hostName": "aa",
+    "players": [
+      {
+        "name": "aa",
+        "connected": false,
+        "lastSubmitRound": 0,
+        "scores": {}
+      }
+    ],
+    "maxRounds": 10,
+    "round": 0,
+    "awaiting": []
+  },
+  {
+    "gameId": "VPGC",
+    "hostName": "bb",
+    "players": [
+      {
+        "name": "bb",
+        "connected": false,
+        "lastSubmitRound": 0,
+        "scores": {}
+      }
+    ],
+    "maxRounds": 10,
+    "round": 0,
+    "awaiting": []
+  },
+  {
+    "gameId": "SXNK",
+    "hostName": "aa",
+    "players": [
+      {
+        "name": "aa",
+        "connected": false,
+        "lastSubmitRound": 0,
+        "scores": {}
+      }
+    ],
+    "maxRounds": 10,
+    "round": 0,
+    "awaiting": []
+  },
+  {
+    "gameId": "UFOP",
+    "hostName": "aa",
+    "players": [
+      {
+        "name": "aa",
+        "connected": false,
+        "lastSubmitRound": 0,
+        "scores": {}
+      }
+    ],
+    "maxRounds": 10,
+    "round": 0,
+    "awaiting": []
+  },
+  {
+    "gameId": "UTOL",
+    "hostName": "bb",
+    "players": [
+      {
+        "name": "bb",
+        "connected": false,
+        "lastSubmitRound": 0,
+        "scores": {}
+      }
+    ],
+    "maxRounds": 10,
+    "round": 0,
+    "awaiting": []
+  },
+  {
+    "gameId": "GWVX",
+    "hostName": "bb",
+    "players": [
+      {
+        "name": "bb",
+        "connected": false,
+        "lastSubmitRound": 0,
+        "scores": {}
+      }
+    ],
+    "maxRounds": 10,
+    "round": 0,
+    "awaiting": []
+  },
+  {
+    "gameId": "JYVJ",
+    "hostName": "aa",
+    "players": [
+      {
+        "name": "aa",
+        "connected": false,
+        "lastSubmitRound": 7,
+        "scores": {
+          "1": 600,
+          "2": 4800,
+          "3": 5800,
+          "4": 3400,
+          "5": 2400,
+          "6": 10800,
+          "7": 2200
+        }
+      },
+      {
+        "name": "bb",
+        "connected": false,
+        "lastSubmitRound": 7,
+        "scores": {
+          "1": 600,
+          "2": 5900,
+          "3": 0,
+          "4": 2200,
+          "5": 3600,
+          "6": 1100,
+          "7": 2200
+        }
+      }
+    ],
+    "maxRounds": 10,
+    "round": 8,
+    "awaiting": [],
+    "startedAt": 1762540785289,
+    "roundSeed": 52412,
+    "nextRoundSeed": 61848
+  },
+  {
+    "gameId": "FUVD",
+    "hostName": "aa",
+    "players": [
+      {
+        "name": "aa",
+        "connected": false,
+        "lastSubmitRound": 0,
+        "scores": {}
+      },
+      {
+        "name": "bb",
+        "connected": false,
+        "lastSubmitRound": 0,
+        "scores": {}
+      },
+      {
+        "name": "cc",
+        "connected": false,
+        "lastSubmitRound": 0,
+        "scores": {}
+      }
+    ],
+    "maxRounds": 10,
+    "round": 1,
+    "awaiting": [],
+    "startedAt": 1762543015607,
+    "endedAt": 1762543095804,
+    "roundSeed": 65732,
+    "nextRoundSeed": 733965
+  },
+  {
+    "gameId": "DMNG",
+    "hostName": "aa",
+    "players": [
+      {
+        "name": "aa",
+        "connected": false,
+        "lastSubmitRound": 6,
+        "scores": {
+          "1": 0,
+          "2": 1100,
+          "3": 100,
+          "4": 200,
+          "5": 1200,
+          "6": 3500
+        }
+      },
+      {
+        "name": "bb",
+        "connected": false,
+        "lastSubmitRound": 6,
+        "scores": {
+          "1": 0,
+          "2": 900,
+          "3": 100,
+          "4": 200,
+          "5": 1200,
+          "6": 7800
+        }
+      },
+      {
+        "name": "cc",
+        "connected": false,
+        "lastSubmitRound": 2,
+        "scores": {
+          "1": 0,
+          "2": 100
+        }
+      }
+    ],
+    "maxRounds": 10,
+    "round": 7,
+    "awaiting": [],
+    "startedAt": 1762543143710,
+    "roundSeed": 471876,
+    "nextRoundSeed": 147783
+  },
+  {
+    "gameId": "QCIR",
+    "hostName": "aa",
+    "players": [
+      {
+        "name": "aa",
+        "connected": false,
+        "lastSubmitRound": 1,
+        "scores": {
+          "1": 900
+        }
+      },
+      {
+        "name": "bb",
+        "connected": true,
+        "lastSubmitRound": 1,
+        "scores": {
+          "1": 200
+        }
+      },
+      {
+        "name": "cc",
+        "connected": true,
+        "lastSubmitRound": 1,
+        "scores": {
+          "1": 600
+        }
+      }
+    ],
+    "maxRounds": 10,
+    "round": 2,
+    "awaiting": [
+      "bb",
+      "cc"
+    ],
+    "startedAt": 1762543844256,
+    "roundSeed": 949300,
+    "nextRoundSeed": 291653
+  }
+]
