@@ -1,165 +1,79 @@
 [
   {
-    "gameId": "YCHP",
+    "gameId": "PTEV",
     "hostName": "aa",
     "players": [
       {
         "name": "aa",
         "connected": false,
-        "lastSubmitRound": 0,
-        "scores": {}
-      }
-    ],
-    "maxRounds": 10,
-    "round": 0,
-    "awaiting": [
-      "aa"
-    ]
-  },
-  {
-    "gameId": "VPGC",
-    "hostName": "bb",
-    "players": [
-      {
-        "name": "bb",
-        "connected": false,
-        "lastSubmitRound": 0,
-        "scores": {}
-      }
-    ],
-    "maxRounds": 10,
-    "round": 0,
-    "awaiting": [
-      "bb"
-    ]
-  },
-  {
-    "gameId": "SXNK",
-    "hostName": "aa",
-    "players": [
-      {
-        "name": "aa",
-        "connected": false,
-        "lastSubmitRound": 0,
-        "scores": {}
-      }
-    ],
-    "maxRounds": 10,
-    "round": 0,
-    "awaiting": [
-      "aa"
-    ]
-  },
-  {
-    "gameId": "UFOP",
-    "hostName": "aa",
-    "players": [
-      {
-        "name": "aa",
-        "connected": false,
-        "lastSubmitRound": 0,
-        "scores": {}
-      }
-    ],
-    "maxRounds": 10,
-    "round": 0,
-    "awaiting": [
-      "aa"
-    ]
-  },
-  {
-    "gameId": "UTOL",
-    "hostName": "bb",
-    "players": [
-      {
-        "name": "bb",
-        "connected": false,
-        "lastSubmitRound": 0,
-        "scores": {}
-      }
-    ],
-    "maxRounds": 10,
-    "round": 0,
-    "awaiting": [
-      "bb"
-    ]
-  },
-  {
-    "gameId": "GWVX",
-    "hostName": "bb",
-    "players": [
-      {
-        "name": "bb",
-        "connected": false,
-        "lastSubmitRound": 0,
-        "scores": {}
-      }
-    ],
-    "maxRounds": 10,
-    "round": 0,
-    "awaiting": [
-      "bb"
-    ]
-  },
-  {
-    "gameId": "XWTZ",
-    "hostName": "bb",
-    "players": [
-      {
-        "name": "bb",
-        "connected": false,
-        "lastSubmitRound": 0,
-        "scores": {}
-      }
-    ],
-    "maxRounds": 10,
-    "round": 0,
-    "awaiting": [
-      "bb"
-    ]
-  },
-  {
-    "gameId": "JXJW",
-    "hostName": "aa",
-    "players": [
-      {
-        "name": "aa",
-        "connected": false,
-        "lastSubmitRound": 1,
+        "lastSubmitRound": 2,
         "scores": {
-          "1": 100
+          "1": 100,
+          "2": 0
         }
-      },
-      {
-        "name": "bb",
-        "connected": true,
-        "lastSubmitRound": 0,
-        "scores": {}
       },
       {
         "name": "cc",
         "connected": true,
-        "lastSubmitRound": 1,
+        "lastSubmitRound": 10,
         "scores": {
-          "1": 100
+          "1": 100,
+          "2": 0,
+          "3": 200,
+          "4": 1700,
+          "5": 300,
+          "6": 0,
+          "7": 100,
+          "8": 0,
+          "9": 700,
+          "10": 600
         }
       },
       {
         "name": "dd",
         "connected": true,
-        "lastSubmitRound": 1,
+        "lastSubmitRound": 10,
         "scores": {
-          "1": 100
+          "1": 100,
+          "2": 0,
+          "3": 200,
+          "4": 1700,
+          "5": 300,
+          "6": 0,
+          "7": 100,
+          "8": 100,
+          "9": 700,
+          "10": 600
+        }
+      },
+      {
+        "name": "bb",
+        "connected": true,
+        "lastSubmitRound": 10,
+        "scores": {
+          "1": 100,
+          "2": 0,
+          "3": 200,
+          "4": 1700,
+          "5": 300,
+          "6": 0,
+          "7": 100,
+          "8": 100,
+          "9": 700,
+          "10": 600
         }
       }
     ],
     "maxRounds": 10,
-    "round": 1,
+    "round": 11,
     "awaiting": [
+      "cc",
+      "dd",
       "bb"
     ],
-    "startedAt": 1762551796533,
-    "roundSeed": 220500,
-    "nextRoundSeed": 734478
+    "startedAt": 1762554142134,
+    "endedAt": 1762555742802,
+    "roundSeed": 230847,
+    "nextRoundSeed": 877962
   }
 ]

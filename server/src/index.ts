@@ -617,7 +617,7 @@ io.on("connection", (socket: Socket) => {
       p.scores = {};
       p.lastSubmitRound = 0;
 
-      // Only mark as connected if their socket is *actually* in this room
+      // Only mark as connected if their socket is actually present
       const isConnected = Array.from(roomSockets).some((sid) => {
         const sock = io.sockets.sockets.get(sid);
         return sock?.data?.playerName?.toLowerCase() === p.name.toLowerCase();
@@ -632,14 +632,17 @@ io.on("connection", (socket: Socket) => {
     gs.nextRoundSeed = Math.floor(Math.random() * 1_000_000);
     gs.startedAt = Date.now();
 
+    // ✅ Ensure the triggering socket (host or player) is definitely marked connected
+    const self = findPlayer(gs, socket.data.playerName);
+    if (self) self.connected = true;
+
     // ✅ Awaiting only includes currently connected players
     gs.awaiting = gs.players.filter((p) => p.connected).map((p) => p.name);
 
     console.log(`🌱 Starting (or restarting) match for ${payload.gameId} → round 1`);
-
     console.log(`🧩 Active connections in ${gs.gameId}:`,
       Array.from(io.sockets.adapter.rooms.get(gs.gameId) ?? [])
-        .map(id => io.sockets.sockets.get(id)?.data?.playerName)
+        .map((id) => io.sockets.sockets.get(id)?.data?.playerName)
         .filter(Boolean)
     );
 
@@ -714,27 +717,38 @@ io.on("connection", (socket: Socket) => {
     }, 2500);
   });
 
-  // REMATCH
+  // ---------------------------
+  // REMATCH GAME
+  // ---------------------------
   socket.on("rematchGame", ({ gameId }) => {
     const gs = games.get(gameId);
     if (!gs) return fail("NOT_FOUND", `Game ${gameId} not found.`);
 
     console.log(`🔁 Host triggered rematch for ${gameId}`);
 
+    // 🧹 Reset scores and submission states for all players
     for (const p of gs.players) {
       p.scores = {};
       p.lastSubmitRound = 0;
     }
 
+    // 💫 Start fresh
     gs.round = 1;
     gs.roundSeed = Math.floor(Math.random() * 1_000_000);
     gs.nextRoundSeed = Math.floor(Math.random() * 1_000_000);
     gs.startedAt = Date.now();
     gs.endedAt = undefined;
-    gs.awaiting = gs.players.map((p) => p.name);
+
+    // ✅ Ensure the triggering socket (host or player) is definitely marked connected
+    const self = findPlayer(gs, socket.data.playerName);
+    if (self) self.connected = true;
+
+    // ✅ Awaiting includes only connected players
+    gs.awaiting = gs.players.filter((p) => p.connected).map((p) => p.name);
 
     console.log(`🌱 Starting new match immediately for ${gameId} → Round 1`);
-    safeBroadcast(io, gs);
+    safeBroadcast(io, gs, { force: true });
+    saveGamesToDisk(true);
   });
 
   // REQUEST STATE
