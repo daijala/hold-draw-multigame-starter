@@ -1,79 +1,17 @@
 [
   {
     "gameId": "PTEV",
-    "hostName": "aa",
+    "hostName": "dd",
     "players": [
-      {
-        "name": "aa",
-        "connected": false,
-        "lastSubmitRound": 2,
-        "scores": {
-          "1": 100,
-          "2": 0
-        }
-      },
-      {
-        "name": "cc",
-        "connected": true,
-        "lastSubmitRound": 10,
-        "scores": {
-          "1": 100,
-          "2": 0,
-          "3": 200,
-          "4": 1700,
-          "5": 300,
-          "6": 0,
-          "7": 100,
-          "8": 0,
-          "9": 700,
-          "10": 600
-        }
-      },
       {
         "name": "dd",
         "connected": true,
-        "lastSubmitRound": 10,
-        "scores": {
-          "1": 100,
-          "2": 0,
-          "3": 200,
-          "4": 1700,
-          "5": 300,
-          "6": 0,
-          "7": 100,
-          "8": 100,
-          "9": 700,
-          "10": 600
-        }
-      },
-      {
-        "name": "bb",
-        "connected": true,
-        "lastSubmitRound": 10,
-        "scores": {
-          "1": 100,
-          "2": 0,
-          "3": 200,
-          "4": 1700,
-          "5": 300,
-          "6": 0,
-          "7": 100,
-          "8": 100,
-          "9": 700,
-          "10": 600
-        }
+        "lastSubmitRound": 0,
+        "scores": {}
       }
     ],
     "maxRounds": 10,
-    "round": 11,
-    "awaiting": [
-      "cc",
-      "dd",
-      "bb"
-    ],
-    "startedAt": 1762554142134,
-    "endedAt": 1762555742802,
-    "roundSeed": 230847,
-    "nextRoundSeed": 877962
+    "round": 0,
+    "awaiting": []
   }
 ]
