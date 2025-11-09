@@ -1,17 +1,52 @@
 [
   {
-    "gameId": "PTEV",
-    "hostName": "dd",
+    "gameId": "MKFX",
+    "hostName": "aa",
     "players": [
       {
-        "name": "dd",
+        "name": "aa",
         "connected": true,
-        "lastSubmitRound": 0,
-        "scores": {}
+        "lastSubmitRound": 3,
+        "scores": {
+          "1": 4600,
+          "2": 600,
+          "3": 0
+        },
+        "hasLeft": false
+      },
+      {
+        "name": "bb",
+        "connected": true,
+        "lastSubmitRound": 3,
+        "scores": {
+          "1": 4600,
+          "2": 600,
+          "3": 0
+        },
+        "hasLeft": false
+      },
+      {
+        "name": "cc",
+        "connected": true,
+        "lastSubmitRound": 3,
+        "scores": {
+          "1": 4600,
+          "2": 600,
+          "3": 0
+        },
+        "hasLeft": false
       }
     ],
     "maxRounds": 10,
-    "round": 0,
-    "awaiting": []
+    "round": 4,
+    "awaiting": [
+      "aa",
+      "bb",
+      "cc"
+    ],
+    "startedAt": 1762721490243,
+    "paused": false,
+    "roundSeed": 684796,
+    "nextRoundSeed": 548383
   }
 ]
