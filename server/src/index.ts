@@ -511,8 +511,23 @@ app.get("/cleanup", (req, res) => {
 // Socket.IO Logic
 // ---------------------------
 
+// const server = http.createServer(app);
+// const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
+
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
+
+// ✅ Replit / shared-host tuned Socket.IO config
+const io = new Server(server, {
+  cors: { origin: "*" },         // Allow all for testing
+  pingInterval: 10000,           // Send a ping every 10s (default is 25s)
+  pingTimeout: 15000,            // If no pong after 15s, drop & reconnect
+  connectTimeout: 5000,          // Wait max 5s for initial connection
+  maxHttpBufferSize: 1e6,        // Avoid big payload stalls
+  allowEIO3: true,               // Support older clients if needed
+  perMessageDeflate: {
+    threshold: 2048,             // Compress larger packets only
+  },
+});
 
 io.on("connection", (socket: Socket) => {
   const fail = (code: string, message: string) => socket.emit("error", { code, message });

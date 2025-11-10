@@ -1,6 +1,6 @@
 [
   {
-    "gameId": "OKOF",
+    "gameId": "CPRM",
     "hostName": "aa",
     "players": [
       {
@@ -16,23 +16,7 @@
         "lastSubmitRound": 0,
         "scores": {},
         "hasLeft": false
-      }
-    ],
-    "maxRounds": 10,
-    "round": 1,
-    "awaiting": [
-      "aa",
-      "bb"
-    ],
-    "startedAt": 1762742203099,
-    "paused": false,
-    "roundSeed": 292534,
-    "nextRoundSeed": 352700
-  },
-  {
-    "gameId": "XTUC",
-    "hostName": "cc",
-    "players": [
+      },
       {
         "name": "cc",
         "connected": true,
@@ -51,12 +35,14 @@
     "maxRounds": 10,
     "round": 1,
     "awaiting": [
+      "aa",
+      "bb",
       "cc",
       "dd"
     ],
-    "startedAt": 1762742200856,
+    "startedAt": 1762744827339,
     "paused": false,
-    "roundSeed": 432087,
-    "nextRoundSeed": 127146
+    "roundSeed": 426689,
+    "nextRoundSeed": 717178
   }
 ]
