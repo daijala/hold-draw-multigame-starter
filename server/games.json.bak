@@ -1,52 +1,62 @@
 [
   {
-    "gameId": "MKFX",
+    "gameId": "OKOF",
     "hostName": "aa",
     "players": [
       {
         "name": "aa",
         "connected": true,
-        "lastSubmitRound": 3,
-        "scores": {
-          "1": 4600,
-          "2": 600,
-          "3": 0
-        },
+        "lastSubmitRound": 0,
+        "scores": {},
         "hasLeft": false
       },
       {
         "name": "bb",
         "connected": true,
-        "lastSubmitRound": 3,
-        "scores": {
-          "1": 4600,
-          "2": 600,
-          "3": 0
-        },
-        "hasLeft": false
-      },
-      {
-        "name": "cc",
-        "connected": true,
-        "lastSubmitRound": 3,
-        "scores": {
-          "1": 4600,
-          "2": 600,
-          "3": 0
-        },
+        "lastSubmitRound": 0,
+        "scores": {},
         "hasLeft": false
       }
     ],
     "maxRounds": 10,
-    "round": 4,
+    "round": 1,
     "awaiting": [
       "aa",
-      "bb",
-      "cc"
+      "bb"
     ],
-    "startedAt": 1762721490243,
+    "startedAt": 1762742203099,
     "paused": false,
-    "roundSeed": 684796,
-    "nextRoundSeed": 548383
+    "roundSeed": 292534,
+    "nextRoundSeed": 352700
+  },
+  {
+    "gameId": "XTUC",
+    "hostName": "cc",
+    "players": [
+      {
+        "name": "cc",
+        "connected": true,
+        "lastSubmitRound": 0,
+        "scores": {},
+        "hasLeft": false
+      },
+      {
+        "name": "dd",
+        "connected": true,
+        "lastSubmitRound": 0,
+        "scores": {},
+        "hasLeft": false
+      }
+    ],
+    "maxRounds": 10,
+    "round": 1,
+    "awaiting": [
+      "cc",
+      "dd"
+    ],
+    "startedAt": 1762742200856,
+    "paused": false,
+    "roundSeed": 432087,
+    "nextRoundSeed": 127146
   }
 ]

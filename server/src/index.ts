@@ -288,7 +288,19 @@ function advanceRound(gs: GameState) {
   gs.roundSeed = gs.nextRoundSeed ?? Math.floor(Math.random() * 1_000_000);
   gs.nextRoundSeed = Math.floor(Math.random() * 1_000_000);
 
-  // ✅ Rebuild awaiting list
+  // 🧹 Skip disconnected players (but keep them in the player list)
+  const before = gs.awaiting.length;
+  gs.awaiting = gs.players
+    .filter((p) => p.connected && !p.hasLeft)
+    .map((p) => p.name);
+  const skipped = before - gs.awaiting.length;
+  if (skipped > 0) {
+    console.log(
+      `⏭️ Skipped ${skipped} disconnected player(s) for round ${gs.round}`
+    );
+  }
+
+  // ✅ Rebuild awaiting list with updated connection states
   ensureAwaiting(gs);
 
   console.log(`🔁 Advancing to round ${gs.round}`);
@@ -628,7 +640,7 @@ io.on("connection", (socket: Socket) => {
         const live = games.get(gs.gameId);
         if (!live || live.round !== gs.round || live.endedAt) return;
 
-        advanceRound(live)
+        advanceRound(live);
 
       }, 2500);
     } else {
@@ -699,31 +711,52 @@ io.on("connection", (socket: Socket) => {
     saveGamesToDisk(true);
   });
 
-  // SUBMIT
+  // ---------------------------
+  // SUBMIT SCORE
+  // ---------------------------
   socket.on("submitScore", (payload) => {
     const { gameId, playerName, round, score } = payload;
     const gs = games.get(gameId);
     if (!gs) return fail("NOT_FOUND", `Game ${gameId} not found.`);
     if (gs.endedAt) return;
 
-    if (round > gs.round) {
-      console.warn(`⚠️ Future submission ignored: ${playerName} r${round} > current ${gs.round}`);
-      return;
-    }
-
     const key = playerName.trim().toLowerCase();
     const player = gs.players.find((p) => p.name.toLowerCase() === key);
     if (!player) return fail("PLAYER_NOT_FOUND", `No such player ${playerName}`);
 
-    // 🚫 Ignore out-of-sync submissions
-    if (round < gs.round) {
-      console.log(`⚠️ Ignoring late submission r${round} < current ${gs.round} from ${playerName}`);
+    // 🧠 Defensive check for invalid round values
+    if (typeof round !== "number" || round <= 0) {
+      console.warn(`⚠️ Invalid round ${round} from ${playerName} in ${gameId}`);
       return;
     }
 
-    console.log(`📥 submitScore ${playerName} r${round}=${score}`);
-    player.scores[round] = score;
-    player.lastSubmitRound = round;
+    // 🚦 Handle possible stale or out-of-sync round submissions
+    if (round < gs.round) {
+      const alreadySubmitted = player.lastSubmitRound >= gs.round;
+      if (alreadySubmitted) {
+        console.log(
+          `⚠️ Duplicate old submission ignored: ${playerName} r${round} (current ${gs.round})`
+        );
+        return;
+      }
+
+      // 🩹 If they haven't yet submitted this round, treat it as current submission
+      console.log(
+        `🩹 Accepting stale submission from ${playerName}: r${round} (server=${gs.round})`
+      );
+      player.scores[gs.round] = score;
+      player.lastSubmitRound = gs.round;
+    } else if (round > gs.round) {
+      console.warn(
+        `⚠️ Future submission ignored: ${playerName} r${round} > current ${gs.round}`
+      );
+      return;
+    } else {
+      // ✅ Normal case
+      console.log(`📥 submitScore ${playerName} r${round}=${score}`);
+      player.scores[round] = score;
+      player.lastSubmitRound = round;
+    }
 
     // 🔁 Safety net: if player was previously disconnected, auto-reconnect them
     if (!player.connected) {
@@ -734,14 +767,14 @@ io.on("connection", (socket: Socket) => {
       console.log(`🔁 Auto-reattached ${playerName} to ${gameId} on late submit`);
     }
 
-    io.to(socket.id).emit("stateUpdate", { ...gs, message: "✅ Score received" });
-
-    // ✅ Always recompute awaiting list AFTER updating player state
+    // ✅ Recompute awaiting list AFTER updating player state
     ensureAwaiting(gs);
 
     if (gs.awaiting.length > 0) {
       console.log(`🕐 Still awaiting ${gs.awaiting.join(", ")} for round ${gs.round}`);
       safeBroadcast(io, gs);
+      // 🧠 Send fresh state to the submitting player too
+      io.to(socket.id).emit("stateUpdate", { ...gs, message: "✅ Score received" });
       return;
     }
 
