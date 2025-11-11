@@ -1,48 +1,55 @@
 [
   {
-    "gameId": "CPRM",
+    "gameId": "KNHZ",
     "hostName": "aa",
     "players": [
       {
         "name": "aa",
-        "connected": true,
-        "lastSubmitRound": 0,
-        "scores": {},
+        "connected": false,
+        "lastSubmitRound": 10,
+        "scores": {
+          "1": 600,
+          "2": 3400,
+          "3": 600,
+          "4": 2500,
+          "5": 800,
+          "6": 100,
+          "7": 200,
+          "8": 2300,
+          "9": 100,
+          "10": 3300
+        },
         "hasLeft": false
       },
       {
         "name": "bb",
-        "connected": true,
-        "lastSubmitRound": 0,
-        "scores": {},
-        "hasLeft": false
-      },
-      {
-        "name": "cc",
-        "connected": true,
-        "lastSubmitRound": 0,
-        "scores": {},
-        "hasLeft": false
-      },
-      {
-        "name": "dd",
-        "connected": true,
-        "lastSubmitRound": 0,
-        "scores": {},
+        "connected": false,
+        "lastSubmitRound": 10,
+        "scores": {
+          "1": 200,
+          "2": 3500,
+          "3": 3500,
+          "4": 1100,
+          "5": 1100,
+          "6": 500,
+          "7": 600,
+          "8": 2300,
+          "9": 100,
+          "10": 1800
+        },
         "hasLeft": false
       }
     ],
     "maxRounds": 10,
-    "round": 1,
+    "round": 11,
     "awaiting": [
       "aa",
-      "bb",
-      "cc",
-      "dd"
+      "bb"
     ],
-    "startedAt": 1762744827339,
+    "startedAt": 1762860345774,
+    "endedAt": 1762860555233,
     "paused": false,
-    "roundSeed": 426689,
-    "nextRoundSeed": 717178
+    "roundSeed": 296081,
+    "nextRoundSeed": 245694
   }
 ]

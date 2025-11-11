@@ -239,11 +239,21 @@ function getGame(gameId: string): GameState | undefined {
   return games.get(gameId);
 }
 
-function findPlayer(gs: GameState, playerName: string): PlayerState | undefined {
-  return gs.players.find((p) => p.name.toLowerCase() === playerName.toLowerCase());
+function findPlayer(gs: GameState, playerName?: string): PlayerState | undefined {
+  if (!playerName) return undefined;  // 👈 safeguard
+  return gs.players.find(
+    (p) => p.name.toLowerCase() === playerName.toLowerCase()
+  );
 }
 
 function ensureAwaiting(gs: GameState) {
+  // 🔒 Terminal game: never rebuild awaiting / paused
+  if (gs.endedAt || gs.round > gs.maxRounds) {
+    gs.awaiting = [];
+    gs.paused = false;
+    return;
+  }
+  
   const roomSockets = io.sockets.adapter.rooms.get(gs.gameId) ?? new Set();
 
   const activeNames = new Set(
@@ -273,10 +283,23 @@ function ensureAwaiting(gs: GameState) {
 function advanceRound(gs: GameState) {
   if (gs.endedAt) return; // already done
 
+  // 🧠 Refresh player connection states BEFORE advancing
+  const roomSockets = io.sockets.adapter.rooms.get(gs.gameId) ?? new Set();
+  const activeNames = new Set(
+    Array.from(roomSockets)
+      .map(sid => io.sockets.sockets.get(sid)?.data?.playerName?.toLowerCase())
+      .filter(Boolean)
+  );
+
+  for (const p of gs.players) {
+    p.connected = activeNames.has(p.name.toLowerCase());
+  }
+
   // 🏁 End-of-game check
   if (gs.round >= gs.maxRounds) {
     gs.endedAt = Date.now();
     gs.round = gs.maxRounds + 1;
+    gs.awaiting = [];                // 🔒 freeze — no one is “awaiting” in Game Over
     console.log(`🏁 Game ${gs.gameId} completed all ${gs.maxRounds} rounds`);
     safeBroadcast(io, gs, { roundComplete: gs.maxRounds });
     saveGamesToDisk(true);
@@ -288,17 +311,8 @@ function advanceRound(gs: GameState) {
   gs.roundSeed = gs.nextRoundSeed ?? Math.floor(Math.random() * 1_000_000);
   gs.nextRoundSeed = Math.floor(Math.random() * 1_000_000);
 
-  // 🧹 Skip disconnected players (but keep them in the player list)
-  const before = gs.awaiting.length;
-  gs.awaiting = gs.players
-    .filter((p) => p.connected && !p.hasLeft)
-    .map((p) => p.name);
-  const skipped = before - gs.awaiting.length;
-  if (skipped > 0) {
-    console.log(
-      `⏭️ Skipped ${skipped} disconnected player(s) for round ${gs.round}`
-    );
-  }
+    // ✅ Only include connected players in awaiting
+  gs.awaiting = gs.players.filter(p => p.connected && !p.hasLeft).map(p => p.name);
 
   // ✅ Rebuild awaiting list with updated connection states
   ensureAwaiting(gs);
@@ -335,10 +349,9 @@ function broadcast(
   const ended = gs.round > gs.maxRounds;
   const timestamp = Date.now();
 
-  const message =
-    gs.awaiting.length === 0
-      ? "All players submitted"
-      : `Awaiting: ${gs.awaiting.join(", ")}`;
+  const message = ended
+    ? "🏁 Game over"
+    : (gs.awaiting.length === 0 ? "All players submitted" : `Awaiting: ${gs.awaiting.join(", ")}`);
 
   const enhancedState = {
     gameId: gs.gameId,
@@ -372,6 +385,10 @@ function broadcast(
       totals
     )}`
   );
+
+  if (gs.paused) {
+    console.log(`⏸️ Game ${gs.gameId} paused — waiting for disconnected players`);
+  }
 
   io.to(gs.gameId).emit("stateUpdate", enhancedState);
 }
@@ -533,7 +550,7 @@ io.on("connection", (socket: Socket) => {
   const fail = (code: string, message: string) => socket.emit("error", { code, message });
 
     // CREATE
-  socket.on("createGame", (payload: { gameId?: string; hostName: string }) => {
+  socket.on("createGame", (payload: { gameId?: string; hostName: string }, ack) => {
     const id =
       (payload.gameId && payload.gameId.trim()) ||
       `game_${Math.random().toString(36).slice(2, 8)}`;
@@ -571,6 +588,9 @@ io.on("connection", (socket: Socket) => {
     // 🔄 Send lobby broadcast — round=0 means “waiting for host to start”
     safeBroadcast(io, gs, { force: true });
     saveGamesToDisk(true);
+
+    // ✅ Respond to client’s ack
+    if (ack) ack({ ok: true, gameId: id });
   });
 
   // JOIN
@@ -603,6 +623,12 @@ io.on("connection", (socket: Socket) => {
       ...gs,
       message: "🔄 Synced latest state after reconnection",
     });
+
+    if (gs.paused && gs.players.every(p => p.connected || p.hasLeft)) {
+      gs.paused = false;
+      console.log(`▶️ Game ${gs.gameId} resumed — all players reconnected`);
+      safeBroadcast(io, gs, { force: true });
+    }
   });
 
   // ---------------------------
@@ -674,7 +700,7 @@ io.on("connection", (socket: Socket) => {
   // ---------------------------
   // START GAME
   // ---------------------------
-  socket.on("startGame", (payload: { gameId: string }) => {
+  socket.on("startGame", (payload: { gameId?: string }, ack) => {
     const gs = getGame(payload.gameId);
     if (!gs) return fail("NOT_FOUND", `Game ${payload.gameId} not found.`);
 
@@ -724,6 +750,7 @@ io.on("connection", (socket: Socket) => {
 
     safeBroadcast(io, gs, { force: true }); // triggers roundStarted=true
     saveGamesToDisk(true);
+    if (ack) ack({ ok: true, round: gs.round });
   });
 
   // ---------------------------
@@ -776,6 +803,7 @@ io.on("connection", (socket: Socket) => {
     // 🔁 Safety net: if player was previously disconnected, auto-reconnect them
     if (!player.connected) {
       player.connected = true;
+      player.hasLeft = false;
       socket.data.gameId = gameId;
       socket.data.playerName = playerName;
       socket.join(gameId);
@@ -815,41 +843,49 @@ io.on("connection", (socket: Socket) => {
     const gs = games.get(gameId);
     if (!gs) return fail("NOT_FOUND", `Game ${gameId} not found.`);
 
-    console.log(`🔁 Host triggered rematch for ${gameId}`);
+    // 🧠 Identify who triggered rematch
+    let caller = socket.data?.playerName ?? gs.hostName;
+    console.log(`🔁 Host triggered rematch for ${gameId} by ${caller}`);
 
-    // 🧹 Remove players who have left permanently
-    const beforeCount = gs.players.length;
+    const self = findPlayer(gs, caller);
+    if (!self) console.warn(`⚠️ rematchGame: could not find player ${caller}`);
+
+    // 🧹 Remove permanently-left players before restarting
     gs.players = gs.players.filter(p => !p.hasLeft);
-    const removed = beforeCount - gs.players.length;
-    if (removed > 0) {
-      console.log(`🗑️ Removed ${removed} player(s) who left before rematch`);
-    }
 
-
-    // 🧹 Reset scores and submission states for all players
+    // ♻️ Reset player states for new match
     for (const p of gs.players) {
       p.scores = {};
       p.lastSubmitRound = 0;
-      p.hasLeft = false;   // ✅ reset for fresh match
+      p.hasLeft = false;
+      // Assume the caller (host) is connected even if their socket just rejoined
+      p.connected = p.connected || p.name === caller;
     }
 
-    // 💫 Start fresh
+    // 💫 Reset match metadata
     gs.round = 1;
     gs.roundSeed = Math.floor(Math.random() * 1_000_000);
     gs.nextRoundSeed = Math.floor(Math.random() * 1_000_000);
     gs.startedAt = Date.now();
     gs.endedAt = undefined;
 
-    // ✅ Ensure the triggering socket (host or player) is definitely marked connected
-    const self = findPlayer(gs, socket.data.playerName);
-    if (self) self.connected = true;
-
-    // ✅ Awaiting includes only connected players
-    gs.awaiting = gs.players.filter((p) => p.connected).map((p) => p.name);
+    // ✅ Awaiting includes all current players (not just connected)
+    gs.awaiting = gs.players.map(p => p.name);
+    gs.paused = false; // don’t flash paused at rematch start
 
     console.log(`🌱 Starting new match immediately for ${gameId} → Round 1`);
-    safeBroadcast(io, gs, { force: true }); // triggers roundStarted=true
+
+    // 🛰️ Send new-round broadcast immediately
+    safeBroadcast(io, gs, { force: true });
     saveGamesToDisk(true);
+
+    // ⏳ After a short delay, rebuild connection & awaiting truth state
+    setTimeout(() => {
+      const live = games.get(gameId);
+      if (!live) return;
+      ensureAwaiting(live);
+      safeBroadcast(io, live, { force: true });
+    }, 500);
   });
 
   // REQUEST STATE
@@ -876,6 +912,14 @@ io.on("connection", (socket: Socket) => {
 
     const p = findPlayer(gs, playerName);
     if (p) p.connected = false;
+
+    // 🔒 If the game is over, do not rebuild awaiting or emit a “live” update
+    if (gs.endedAt || gs.round > gs.maxRounds) {
+      // Optional: emit one last *final* snapshot to remaining clients
+      safeBroadcast(io, gs, { roundComplete: gs.maxRounds, force: true });
+      saveGamesToDisk();
+      return;
+    }
 
     // 🧩 Refresh awaiting list and rebroadcast to all connected players
     ensureAwaiting(gs);
