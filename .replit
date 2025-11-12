@@ -35,14 +35,10 @@ localPort = 8000
 externalPort = 8000
 
 [[ports]]
-localPort = 32825
-externalPort = 3001
-
-[[ports]]
 localPort = 33797
 externalPort = 3000
 
 [deployment]
 deploymentTarget = "vm"
-run = ["bash", "-c", "cd server && node dist/index.js"]
-build = ["bash", "-c", "cd server && npm install && npm run build"]
+run = ["sh", "-c", "cd server && node dist/index.js"]
+build = ["sh", "-c", "cd server && npm install && npm run build"]
