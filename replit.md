@@ -78,8 +78,14 @@ The project is configured for **VM deployment** to support:
 - Real-time game state management
 - Multiple concurrent server processes
 
-**Build Command**: Compiles TypeScript in `server/` directory
-**Run Command**: Starts both backend (port 8000) and frontend (port 5000) servers
+**Build Command**: 
+- Installs root dependencies (for frontend server)
+- Installs server dependencies (including TypeScript)
+- Compiles TypeScript to `server/dist/` directory
+
+**Run Command**: Starts both backend (port 8000) and frontend (port 5000) servers concurrently
+
+**Note**: TypeScript is included in `dependencies` (not just `devDependencies`) to ensure it's available during the deployment build process.
 
 ## Recent Changes
 
