@@ -99,6 +99,7 @@ function cleanupStaleGames() {
 setInterval(() => saveGamesToDisk(), 10000);
 setInterval(cleanupStaleGames, 60000); // check every minute
 loadGamesFromDisk();
+cleanupStaleGames(); // Clean up stale games immediately on startup
 // ---------------------------
 // Auto-reload when games.json changes on disk (debounced + safe merge)
 // ---------------------------
