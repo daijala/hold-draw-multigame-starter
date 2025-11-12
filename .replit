@@ -1,10 +1,4 @@
-modules = ["nodejs-20", "web"]
-[agent]
-expertMode = true
-
-[nix]
-channel = "stable-25_05"
-
+modules = ["nodejs-20"]
 [workflows]
 runButton = "Project"
 
@@ -15,35 +9,22 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Backend"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Frontend"
+args = "server"
 
 [[workflows.workflow]]
-name = "Backend"
+name = "server"
 author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd server && npm run dev"
 waitForPort = 8000
 
-[[workflows.workflow]]
-name = "Frontend"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "node frontend-server.js"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
-outputType = "webview"
+outputType = "console"
+
+[agent]
+expertMode = true
 
 [[ports]]
 localPort = 5000
@@ -54,10 +35,9 @@ localPort = 8000
 externalPort = 8000
 
 [[ports]]
+localPort = 32825
+externalPort = 3001
+
+[[ports]]
 localPort = 33797
 externalPort = 3000
-
-[deployment]
-deploymentTarget = "vm"
-run = ["bash", "-c", "cd server && npm start & node ../frontend-server.js"]
-build = ["bash", "-c", "npm install && cd server && npm install && npm run build"]
