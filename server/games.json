@@ -1,0 +1,56 @@
+[
+  {
+    "gameId": "THTZ",
+    "hostName": "aa",
+    "players": [
+      {
+        "name": "aa",
+        "connected": false,
+        "lastSubmitRound": 2,
+        "scores": {
+          "1": 600,
+          "2": 0
+        },
+        "hasLeft": true,
+        "seenThisRound": true,
+        "allowSubmitAfter": 1762976852213
+      },
+      {
+        "name": "bb",
+        "connected": false,
+        "lastSubmitRound": 2,
+        "scores": {
+          "1": 600,
+          "2": 0
+        },
+        "hasLeft": false,
+        "seenThisRound": true,
+        "allowSubmitAfter": 1762976852213
+      },
+      {
+        "name": "dd",
+        "connected": false,
+        "lastSubmitRound": 2,
+        "scores": {
+          "1": 600,
+          "2": 10800
+        },
+        "hasLeft": false,
+        "seenThisRound": true,
+        "allowSubmitAfter": 1762976852213
+      }
+    ],
+    "maxRounds": 10,
+    "round": 3,
+    "awaiting": [
+      "bb",
+      "dd"
+    ],
+    "paused": false,
+    "roundStartedAt": 1762976851713,
+    "startedAt": 1762976630853,
+    "endedAt": 1762976888987,
+    "roundSeed": 368495,
+    "nextRoundSeed": 626151
+  }
+]
