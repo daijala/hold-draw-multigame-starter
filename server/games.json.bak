@@ -5,53 +5,52 @@
     "players": [
       {
         "name": "aa",
-        "connected": true,
-        "lastSubmitRound": 0,
-        "scores": {},
-        "hasLeft": false,
+        "connected": false,
+        "lastSubmitRound": 2,
+        "scores": {
+          "1": 600,
+          "2": 0
+        },
+        "hasLeft": true,
         "seenThisRound": true,
-        "allowSubmitAfter": 1762968893565
+        "allowSubmitAfter": 1762976852213
       },
       {
         "name": "bb",
-        "connected": true,
-        "lastSubmitRound": 0,
-        "scores": {},
+        "connected": false,
+        "lastSubmitRound": 2,
+        "scores": {
+          "1": 600,
+          "2": 0
+        },
         "hasLeft": false,
         "seenThisRound": true,
-        "allowSubmitAfter": 1762968885627
-      },
-      {
-        "name": "cc",
-        "connected": true,
-        "lastSubmitRound": 0,
-        "scores": {},
-        "hasLeft": false,
-        "seenThisRound": true,
-        "allowSubmitAfter": 1762968876107
+        "allowSubmitAfter": 1762976852213
       },
       {
         "name": "dd",
-        "connected": true,
-        "lastSubmitRound": 0,
-        "scores": {},
+        "connected": false,
+        "lastSubmitRound": 2,
+        "scores": {
+          "1": 600,
+          "2": 10800
+        },
         "hasLeft": false,
         "seenThisRound": true,
-        "allowSubmitAfter": 1762968879667
+        "allowSubmitAfter": 1762976852213
       }
     ],
     "maxRounds": 10,
-    "round": 1,
+    "round": 3,
     "awaiting": [
-      "aa",
       "bb",
-      "cc",
       "dd"
     ],
     "paused": false,
-    "roundStartedAt": 1762968861034,
-    "startedAt": 1762968899198,
-    "roundSeed": 387690,
-    "nextRoundSeed": 304252
+    "roundStartedAt": 1762976851713,
+    "startedAt": 1762976630853,
+    "endedAt": 1762976888987,
+    "roundSeed": 368495,
+    "nextRoundSeed": 626151
   }
 ]
