@@ -46,18 +46,18 @@ waitForPort = 5000
 outputType = "webview"
 
 [[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
 localPort = 8000
 externalPort = 8000
 
 [[ports]]
-localPort = 41353
-externalPort = 80
-
-[[ports]]
-localPort = 5000
-externalPort = 80
+localPort = 35849
+externalPort = 3000
 
 [deployment]
 deploymentTarget = "vm"
-run = ["bash", "-c", "cd server && npm start & node frontend-server.js"]
-build = ["bash", "-c", "cd server && npm install && npm run build"]
+run = ["bash", "-c", "cd server && npm start & node ../frontend-server.js"]
+build = ["bash", "-c", "npm install && cd server && npm install && npm run build"]
