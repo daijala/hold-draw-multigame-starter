@@ -16,6 +16,10 @@ type PlayerState = {
   hasLeft?: boolean;  // ✅ new
   lastSubmitRound: number;
   scores: Record<number, number>;
+
+  // 👇 transient-but-persistable guards (ok to be undefined)
+  seenThisRound?: boolean;
+  allowSubmitAfter?: number;
 };
 
 type GameState = {
@@ -29,6 +33,8 @@ type GameState = {
   awaiting: string[];
   roundSeed?: number;
   nextRoundSeed?: number;
+  paused?: boolean;           // 👈 add this
+  roundStartedAt?: number;       // 👈 for anti-instant-submit heuristics
 };
 
 type Games = Map<string, GameState>;
@@ -40,6 +46,8 @@ const games: Games = new Map();
 
 const STATE_FILE = "./games.json";
 const STALE_MINUTES = 60; // remove games older than 1 hour
+const STRICT_WAIT_FOR_ALL = true; // ✅ require every non-left player to submit, even if disconnected
+const MIN_SUBMIT_MS = 500;             // 👈 reject submits sooner than this after (re)appearing
 
 // Throttle control for disk writes
 let lastSaveTime = 0;
@@ -229,6 +237,8 @@ function newGame(gameId: string, hostName: string, maxRounds = 10): GameState {
     maxRounds,
     round: 0,
     awaiting: [],
+    paused: false,            // 👈 default
+    roundStartedAt: undefined,
   };
   games.set(gameId, gs);
   saveGamesToDisk();
@@ -247,32 +257,43 @@ function findPlayer(gs: GameState, playerName?: string): PlayerState | undefined
 }
 
 function ensureAwaiting(gs: GameState) {
-  // 🔒 Terminal game: never rebuild awaiting / paused
+  // 🔒 Terminal game: never rebuild
   if (gs.endedAt || gs.round > gs.maxRounds) {
     gs.awaiting = [];
     gs.paused = false;
     return;
   }
-  
-  const roomSockets = io.sockets.adapter.rooms.get(gs.gameId) ?? new Set();
 
+  // Who is actually connected in this room?
+  const roomSockets = io.sockets.adapter.rooms.get(gs.gameId) ?? new Set<string>();
   const activeNames = new Set(
     Array.from(roomSockets)
       .map((sid) => io.sockets.sockets.get(sid)?.data?.playerName?.toLowerCase())
-      .filter(Boolean)
+      .filter(Boolean) as string[]
   );
 
-  const need = gs.players
-    .map((p) => {
-      const isConnected = activeNames.has(p.name.toLowerCase());
-      p.connected = isConnected;
-      return p;
-    })
+  // Refresh connected flags for UI
+  for (const p of gs.players) {
+    p.connected = activeNames.has(p.name.toLowerCase());
+  }
+
+  // ✅ STRICT: Await EVERY non-left player who still owes this round (regardless of connection)
+  const needAll = gs.players
     .filter((p) => !p.hasLeft && p.lastSubmitRound < gs.round)
     .map((p) => p.name);
 
-  gs.awaiting = need;
-  gs.paused = gs.players.some((p) => !p.hasLeft && !p.connected); // ✅ informational only
+  gs.awaiting = STRICT_WAIT_FOR_ALL ? needAll : (
+    // non-strict fallback (connected-only)
+    gs.players.filter((p) => !p.hasLeft && p.connected && p.lastSubmitRound < gs.round)
+              .map((p) => p.name)
+  );
+
+  // Show paused banner if anyone required is disconnected
+  const someoneRequiredDisconnected = gs.players.some(
+    (p) => !p.hasLeft && p.lastSubmitRound < gs.round && !p.connected
+  );
+  gs.paused = STRICT_WAIT_FOR_ALL ? someoneRequiredDisconnected
+                                  : gs.players.some((p) => !p.hasLeft && !p.connected);
 
   console.log(`🧩 ensureAwaiting(): round=${gs.round} → awaiting=[${gs.awaiting.join(", ")}]`);
 }
@@ -311,8 +332,18 @@ function advanceRound(gs: GameState) {
   gs.roundSeed = gs.nextRoundSeed ?? Math.floor(Math.random() * 1_000_000);
   gs.nextRoundSeed = Math.floor(Math.random() * 1_000_000);
 
-    // ✅ Only include connected players in awaiting
-  gs.awaiting = gs.players.filter(p => p.connected && !p.hasLeft).map(p => p.name);
+  gs.roundStartedAt = Date.now();
+  for (const p of gs.players) {
+    // If they’re connected at round start, they’re considered to have “seen” the round
+    p.seenThisRound = !!p.connected;
+    // Small grace before we accept a submit (prevents instant resume->submit)
+    p.allowSubmitAfter = Date.now() + MIN_SUBMIT_MS;
+  }
+  
+  // ✅ Only include connected players in awaiting
+  gs.awaiting = STRICT_WAIT_FOR_ALL
+    ? gs.players.filter((p) => !p.hasLeft).map((p) => p.name)
+    : gs.players.filter((p) => p.connected && !p.hasLeft).map((p) => p.name);
 
   // ✅ Rebuild awaiting list with updated connection states
   ensureAwaiting(gs);
@@ -615,6 +646,15 @@ io.on("connection", (socket: Socket) => {
     socket.data.playerName = payload.playerName;
     socket.data.gameId = payload.gameId;
     socket.join(gs.gameId);
+
+    if (gs.round > 0 && !gs.endedAt) {
+      const p2 = findPlayer(gs, payload.playerName);
+      if (p2) {
+        p2.seenThisRound = true;
+        p2.allowSubmitAfter = Date.now() + MIN_SUBMIT_MS;
+      }
+    }
+
     ensureAwaiting(gs);
 
     // 🧠 Send latest state directly to the reconnected socket
@@ -701,12 +741,16 @@ io.on("connection", (socket: Socket) => {
   // START GAME
   // ---------------------------
   socket.on("startGame", (payload: { gameId?: string }, ack) => {
-    const gs = getGame(payload.gameId);
-    if (!gs) return fail("NOT_FOUND", `Game ${payload.gameId} not found.`);
+    const targetId = (payload && payload.gameId) || socket.data.gameId;   // 👈 fallback
+    const gs = getGame(targetId);
+    if (!gs) {
+      if (ack) ack({ ok: false, error: `NOT_FOUND: ${String(targetId)}` });
+      return;
+    }
 
-    // ✅ Only start if the game is fresh or ended
     if (gs.round > 0 && !gs.endedAt) {
       console.warn(`⚠️ startGame ignored — ${gs.gameId} already running (round=${gs.round})`);
+      if (ack) ack({ ok: true, round: gs.round, alreadyRunning: true });
       return;
     }
 
@@ -734,12 +778,22 @@ io.on("connection", (socket: Socket) => {
     gs.nextRoundSeed = Math.floor(Math.random() * 1_000_000);
     gs.startedAt = Date.now();
 
+    gs.roundStartedAt = Date.now();
+    for (const p of gs.players) {
+      // If they’re connected at round start, they’re considered to have “seen” the round
+      p.seenThisRound = !!p.connected;
+      // Small grace before we accept a submit (prevents instant resume->submit)
+      p.allowSubmitAfter = Date.now() + MIN_SUBMIT_MS;
+    }
+
     // ✅ Ensure the triggering socket (host or player) is definitely marked connected
     const self = findPlayer(gs, socket.data.playerName);
     if (self) self.connected = true;
 
     // ✅ Awaiting only includes currently connected players
-    gs.awaiting = gs.players.filter((p) => p.connected).map((p) => p.name);
+    gs.awaiting = STRICT_WAIT_FOR_ALL
+      ? gs.players.filter((p) => !p.hasLeft).map((p) => p.name)
+      : gs.players.filter((p) => p.connected && !p.hasLeft).map((p) => p.name);
 
     console.log(`🌱 Starting (or restarting) match for ${payload.gameId} → round 1`);
     console.log(`🧩 Active connections in ${gs.gameId}:`,
@@ -762,7 +816,7 @@ io.on("connection", (socket: Socket) => {
     if (!gs) return fail("NOT_FOUND", `Game ${gameId} not found.`);
     if (gs.endedAt) return;
 
-    const key = playerName.trim().toLowerCase();
+    const key = String(playerName).trim().toLowerCase();
     const player = gs.players.find((p) => p.name.toLowerCase() === key);
     if (!player) return fail("PLAYER_NOT_FOUND", `No such player ${playerName}`);
 
@@ -772,26 +826,47 @@ io.on("connection", (socket: Socket) => {
       return;
     }
 
+    // 🛡️ Ignore duplicate resubmits for the current round
+    if (round === gs.round && player.lastSubmitRound >= gs.round) {
+      console.log(`♻️ Duplicate submit ignored from ${playerName} r${round}`);
+      return;
+    }
+
+    // ❗ Server-only guard: prevent instant/accidental submits on resume
+    if (gs.round > 0 && !gs.endedAt) {
+      const now = Date.now();
+
+      // If we’ve never seen this player in-room this round, mark seen and require a brief dwell
+      if (!player.seenThisRound) {
+        player.seenThisRound = true;
+        player.allowSubmitAfter = now + MIN_SUBMIT_MS;
+        console.log(`⏸️ First activity from ${playerName} this round — gating submit for ${MIN_SUBMIT_MS}ms`);
+        safeBroadcast(io, gs, { force: true });
+        return;
+      }
+
+      // If they reappeared just now, require a minimal dwell time
+      const notYet =
+        typeof player.allowSubmitAfter === "number" && now < (player.allowSubmitAfter as number);
+      if (notYet) {
+        console.log(`⛔ Ignoring submit from ${playerName} r${round} — too soon after (re)appear`);
+        return;
+      }
+    }
+
     // 🚦 Handle possible stale or out-of-sync round submissions
     if (round < gs.round) {
       const alreadySubmitted = player.lastSubmitRound >= gs.round;
       if (alreadySubmitted) {
-        console.log(
-          `⚠️ Duplicate old submission ignored: ${playerName} r${round} (current ${gs.round})`
-        );
+        console.log(`⚠️ Duplicate old submission ignored: ${playerName} r${round} (current ${gs.round})`);
         return;
       }
-
       // 🩹 If they haven't yet submitted this round, treat it as current submission
-      console.log(
-        `🩹 Accepting stale submission from ${playerName}: r${round} (server=${gs.round})`
-      );
+      console.log(`🩹 Accepting stale submission from ${playerName}: r${round} (server=${gs.round})`);
       player.scores[gs.round] = score;
       player.lastSubmitRound = gs.round;
     } else if (round > gs.round) {
-      console.warn(
-        `⚠️ Future submission ignored: ${playerName} r${round} > current ${gs.round}`
-      );
+      console.warn(`⚠️ Future submission ignored: ${playerName} r${round} > current ${gs.round}`);
       return;
     } else {
       // ✅ Normal case
@@ -810,30 +885,50 @@ io.on("connection", (socket: Socket) => {
       console.log(`🔁 Auto-reattached ${playerName} to ${gameId} on late submit`);
     }
 
+    // Mark presence and set a short grace for any immediate follow-ups (mostly no-op now)
+    player.seenThisRound = true;
+    player.allowSubmitAfter = Date.now() + MIN_SUBMIT_MS;
+
     // ✅ Recompute awaiting list AFTER updating player state
     ensureAwaiting(gs);
 
-    if (gs.awaiting.length > 0) {
-      console.log(`🕐 Still awaiting ${gs.awaiting.join(", ")} for round ${gs.round}`);
-      safeBroadcast(io, gs);
-      // 🧠 Send fresh state to the submitting player too
-      io.to(socket.id).emit("stateUpdate", { ...gs, message: "✅ Score received" });
+    // 🏁 If EVERYONE has submitted, finalize immediately (even in strict mode)
+    const finished = gs.round;
+    if (gs.awaiting.length === 0) {
+      console.log(`🏁 All players submitted round ${finished} (strict finalize)`);
+      safeBroadcast(io, gs, { roundComplete: finished });
+
+      setTimeout(() => {
+        const live = games.get(gameId);
+        if (!live || live.round !== finished || live.endedAt) return;
+        advanceRound(live);
+      }, 2500);
+
       return;
     }
 
-    // 🏁 All connected players have submitted
-    const finished = gs.round;
-    console.log(`🏁 All players submitted round ${finished}`);
-    safeBroadcast(io, gs, { roundComplete: finished });
+    // 🕐 Still awaiting someone
+    if (STRICT_WAIT_FOR_ALL) {
+      // If any required (non-left, not-yet-submitted) player is disconnected, HOLD the round.
+      const requiredDisconnected = gs.players.some(
+        (p) => !p.hasLeft && p.lastSubmitRound < gs.round && !p.connected
+      );
+      if (requiredDisconnected) {
+        gs.paused = true;
+        console.log(`⏸️ Holding round ${gs.round} — required player disconnected`);
+        safeBroadcast(io, gs, { force: true });
+        // (optional) also ping the submitter with a message
+        io.to(socket.id).emit("stateUpdate", { ...gs, message: "⏸️ Waiting for reconnect" });
+        return;
+      }
+    }
 
-    setTimeout(() => {
-      // 🧩 Re-check that the game still exists and hasn’t advanced or ended
-      const live = games.get(gameId);
-      if (!live || live.round !== finished || live.endedAt) return;
-
-      advanceRound(live);
-
-    }, 2500);
+    // Non-strict (or no requiredDisconnected): just broadcast normal “awaiting …”
+    console.log(`🕐 Still awaiting ${gs.awaiting.join(", ")} for round ${gs.round}`);
+    safeBroadcast(io, gs);
+    // Quick receipt to the submitting socket
+    io.to(socket.id).emit("stateUpdate", { ...gs, message: "✅ Score received" });
+    return;
   });
 
   // ---------------------------
@@ -926,6 +1021,18 @@ io.on("connection", (socket: Socket) => {
     safeBroadcast(io, gs, { force: true });
 
     saveGamesToDisk();
+
+    // ✅ NEW: if no connected players are outstanding, finish the round
+    if (gs.awaiting.length === 0 && gs.round > 0 && !gs.endedAt) {
+      console.log(`🏁 Round ${gs.round} completed automatically after disconnect`);
+      const finished = gs.round;
+      safeBroadcast(io, gs, { roundComplete: finished });
+      setTimeout(() => {
+        const live = games.get(gameId);
+        if (!live || live.round !== finished || live.endedAt) return;
+        advanceRound(live);
+      }, 2500);
+    }
 
     // 🧹 Optional cleanup if no one’s left
     if (gs.players.every((pl) => !pl.connected)) {

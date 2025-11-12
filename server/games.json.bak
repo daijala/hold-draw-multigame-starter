@@ -1,55 +1,57 @@
 [
   {
-    "gameId": "KNHZ",
+    "gameId": "THTZ",
     "hostName": "aa",
     "players": [
       {
         "name": "aa",
-        "connected": false,
-        "lastSubmitRound": 10,
-        "scores": {
-          "1": 600,
-          "2": 3400,
-          "3": 600,
-          "4": 2500,
-          "5": 800,
-          "6": 100,
-          "7": 200,
-          "8": 2300,
-          "9": 100,
-          "10": 3300
-        },
-        "hasLeft": false
+        "connected": true,
+        "lastSubmitRound": 0,
+        "scores": {},
+        "hasLeft": false,
+        "seenThisRound": true,
+        "allowSubmitAfter": 1762968893565
       },
       {
         "name": "bb",
-        "connected": false,
-        "lastSubmitRound": 10,
-        "scores": {
-          "1": 200,
-          "2": 3500,
-          "3": 3500,
-          "4": 1100,
-          "5": 1100,
-          "6": 500,
-          "7": 600,
-          "8": 2300,
-          "9": 100,
-          "10": 1800
-        },
-        "hasLeft": false
+        "connected": true,
+        "lastSubmitRound": 0,
+        "scores": {},
+        "hasLeft": false,
+        "seenThisRound": true,
+        "allowSubmitAfter": 1762968885627
+      },
+      {
+        "name": "cc",
+        "connected": true,
+        "lastSubmitRound": 0,
+        "scores": {},
+        "hasLeft": false,
+        "seenThisRound": true,
+        "allowSubmitAfter": 1762968876107
+      },
+      {
+        "name": "dd",
+        "connected": true,
+        "lastSubmitRound": 0,
+        "scores": {},
+        "hasLeft": false,
+        "seenThisRound": true,
+        "allowSubmitAfter": 1762968879667
       }
     ],
     "maxRounds": 10,
-    "round": 11,
+    "round": 1,
     "awaiting": [
       "aa",
-      "bb"
+      "bb",
+      "cc",
+      "dd"
     ],
-    "startedAt": 1762860345774,
-    "endedAt": 1762860555233,
     "paused": false,
-    "roundSeed": 296081,
-    "nextRoundSeed": 245694
+    "roundStartedAt": 1762968861034,
+    "startedAt": 1762968899198,
+    "roundSeed": 387690,
+    "nextRoundSeed": 304252
   }
 ]
