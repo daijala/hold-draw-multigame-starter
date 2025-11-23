@@ -277,25 +277,64 @@ function ensureAwaiting(gs: GameState) {
     p.connected = activeNames.has(p.name.toLowerCase());
   }
 
-  // ✅ STRICT: Await EVERY non-left player who still owes this round (regardless of connection)
+  // ✅ STRICT: Await EVERY non-left player who BOTH:
+  //    - has "seen" this round, and
+  //    - has not yet submitted for this round
   const needAll = gs.players
-    .filter((p) => !p.hasLeft && p.lastSubmitRound < gs.round)
+    .filter(
+      (p) =>
+        !p.hasLeft &&
+        p.seenThisRound === true &&      // 👈 NEW: only players who actually saw this round
+        p.lastSubmitRound < gs.round
+    )
     .map((p) => p.name);
 
-  gs.awaiting = STRICT_WAIT_FOR_ALL ? needAll : (
-    // non-strict fallback (connected-only)
-    gs.players.filter((p) => !p.hasLeft && p.connected && p.lastSubmitRound < gs.round)
-              .map((p) => p.name)
+  gs.awaiting = STRICT_WAIT_FOR_ALL
+    ? needAll
+    : gs.players
+        .filter(
+          (p) =>
+            !p.hasLeft &&
+            p.connected &&
+            p.seenThisRound === true &&
+            p.lastSubmitRound < gs.round
+        )
+        .map((p) => p.name);
+
+  // Show paused banner only if a *required* player is disconnected
+  const someoneRequiredDisconnected = gs.players.some(
+    (p) =>
+      !p.hasLeft &&
+      p.seenThisRound === true &&       // 👈 only those who were actually in this round
+      p.lastSubmitRound < gs.round &&
+      !p.connected
   );
 
-  // Show paused banner if anyone required is disconnected
-  const someoneRequiredDisconnected = gs.players.some(
-    (p) => !p.hasLeft && p.lastSubmitRound < gs.round && !p.connected
-  );
   gs.paused = STRICT_WAIT_FOR_ALL ? someoneRequiredDisconnected
                                   : gs.players.some((p) => !p.hasLeft && !p.connected);
 
   console.log(`🧩 ensureAwaiting(): round=${gs.round} → awaiting=[${gs.awaiting.join(", ")}]`);
+
+  // 👇 New deep-dive logging
+  // logRoundDebug(gs, "ensureAwaiting");
+}
+
+function logRoundDebug(gs: GameState, context: string) {
+  console.log(`\n🔍 [DEBUG] ${context} — game=${gs.gameId}, round=${gs.round}, paused=${gs.paused ? "YES" : "no"}`);
+  console.log(`   awaiting: [${gs.awaiting.join(", ")}]`);
+
+  for (const p of gs.players) {
+    const isAwaiting = gs.awaiting.includes(p.name);
+    console.log(
+      `   • ${p.name}` +
+      ` | conn=${p.connected ? "Y" : "n"}` +
+      ` | left=${p.hasLeft ? "Y" : "n"}` +
+      ` | seenThisRound=${p.seenThisRound ? "Y" : "n"}` +
+      ` | lastSubmit=${p.lastSubmitRound}` +
+      ` | awaiting=${isAwaiting ? "Y" : "n"}`
+    );
+  }
+  console.log("🔍 [DEBUG END]\n");
 }
 
 // ---------------------------
@@ -411,11 +450,11 @@ function broadcast(
     roundStarted: opts.force === true && gs.round > 0,
   };
 
-  console.log(
-    `🛰️ [Server] Round ${gs.round}  roundComplete=${opts.roundComplete ?? "nil"}  Totals: ${JSON.stringify(
-      totals
-    )}`
-  );
+  // console.log(
+  //   `🛰️ [Server] Round ${gs.round}  roundComplete=${opts.roundComplete ?? "nil"}  Totals: ${JSON.stringify(
+  //     totals
+  //   )}`
+  // );
 
   if (gs.paused) {
     console.log(`⏸️ Game ${gs.gameId} paused — waiting for disconnected players`);
@@ -431,7 +470,7 @@ setInterval(() => {
   const counts = Object.entries(callCounts)
     .map(([id, n]) => `${id}:${n}`)
     .join("  ");
-  if (counts) console.log(`📊 Broadcast counts: ${counts}`);
+  // if (counts) console.log(`📊 Broadcast counts: ${counts}`);
   for (const k of Object.keys(callCounts)) delete callCounts[k];
 }, 3000);
 
